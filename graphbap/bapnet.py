@@ -11,16 +11,19 @@ ligand_atom_add_aromatic_types = ['H', 'C1', 'C2', 'N1', 'N2', 'O1', 'O2', 'F', 
 pocket_atom_types = ['H', 'C', 'N', 'O', 'S', 'Se']
 residue_types = ['ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN', 'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR']
 
+# mask를 통해 리간드-단백질 복합체 속 모든 노드들을 넘겨받음(어디에 속한 노드인지)
+# x는 각 노드의 좌표임 -> 일정 거리 내에 위치하는 노드들끼리만 결합을 형성하는 역할을 해줌
 def get_edges(mask, x=None, edge_cutoff=None):
-    adj = mask[:, None] == mask[None, :]
+    adj = mask[:, None] == mask[None, :] # mask를 각각 n*1 벡터, 1*n 벡터로 바꾸어 이것을 서로 계산하여 n*n 행렬을 만듦 (들어있는 내용: 서로 같은 샘플에 속해있는지 여부)
     if edge_cutoff is not None:
-        adj = adj & (torch.cdist(x, x) <= float(edge_cutoff))
-    edges = torch.stack(torch.where(adj), dim=0)
+        adj = adj & (torch.cdist(x, x) <= float(edge_cutoff)) # 일정 거리 내에 위치하는 노드들끼리만 결합을 형성하도록 함
+    edges = torch.stack(torch.where(adj), dim=0) # 새로 형성된 결합들을 추가 (where: true인 인덱스만 뽑는 것)
     return edges
 
 def remove_mean_batch_ligand(x_lig, x_pocket, lig_indices, pocket_indices):
 
     # Just subtract the center of mass of the sampled part
+    # 절대 좌표의 영향을 줄임
     lig_mean = scatter_mean(x_lig, lig_indices, dim=0)
     pocket_mean = scatter_mean(x_pocket, pocket_indices, dim=0)
 
@@ -28,6 +31,7 @@ def remove_mean_batch_ligand(x_lig, x_pocket, lig_indices, pocket_indices):
     x_pocket = x_pocket - pocket_mean[pocket_indices]
     return x_lig, x_pocket
 
+# 위의 함수는 각 샘플의 중심을 계산하는 반면, 이 함수는 ligand의 중심만 계산하여 리간드와 단백질의 상대적 거리를 표현하게 됨
 def remove_lig_mean_batch_ligand(x_lig, x_pocket, lig_indices, pocket_indices):
 
     lig_mean = scatter_mean(x_lig, lig_indices, dim=0)
@@ -36,6 +40,7 @@ def remove_lig_mean_batch_ligand(x_lig, x_pocket, lig_indices, pocket_indices):
     x_pocket = x_pocket - lig_mean[pocket_indices]
     return x_lig, x_pocket
 
+# 위 함수와 반대로, pocket의 중심을 계산하는 함수
 def remove_pocket_mean_batch_ligand(x_lig, x_pocket, lig_indices, pocket_indices):
 
     pocket_mean = scatter_mean(x_pocket, pocket_indices, dim=0)
@@ -46,7 +51,7 @@ def remove_pocket_mean_batch_ligand(x_lig, x_pocket, lig_indices, pocket_indices
 
 class BAPNet(nn.Module):
     def __init__(self, ckpt_path=None,
-                 hidden_nf: int = 128,
+                 hidden_nf: int = 128, # int를 쓰는 게 좋으며, 디폴트 값은 128이라는 뜻
                  act_fn=nn.SiLU(), GAT_head: int = 2, graph_layers: int = 1, 
                  attention=False,
                  norm_diff=True, tanh=False, coords_range=15, norm_constant=1, inv_sublayers=1,
@@ -61,9 +66,9 @@ class BAPNet(nn.Module):
         self.ligand_atom_type_embed = nn.Embedding(len(ligand_atom_add_aromatic_types) + 1, graph_dim)
         self.pocket_atom_type_embed = nn.Embedding(len(pocket_atom_types) + 1, graph_dim)
         self.pocket_residue_type_embed = nn.Embedding(len(residue_types) + 1, graph_dim)
-        self.pocket_type_fusion = nn.Linear(graph_dim * 2, graph_dim)
+        self.pocket_type_fusion = nn.Linear(graph_dim * 2, graph_dim) # 리간드, 단백질 정보를 한 번에 표시할 수 있게 함
         
-        self.id_embed = nn.Embedding(2, 4)
+        self.id_embed = nn.Embedding(2, 4) # 복합체가 정의되었기 때문에, 리간드와 단백질을 구분하여 나타내기 위해 필요함
         self.embed_fusion = nn.Linear(graph_dim + 4, graph_dim)
 
         self.edge_cutoff = edge_cutoff
@@ -93,7 +98,7 @@ class BAPNet(nn.Module):
         ])
 
         self.LigandGraph = nn.ModuleList([
-            EquivariantBlock(hidden_nf, edge_feat_nf=edge_feat_nf,
+            EquivariantBlock(hidden_nf, edge_feat_nf=edge_feat_nf, # EquivariantBlock: SE(3)-equivariant GNN block
                 act_fn=act_fn, n_layers=inv_sublayers,
                 attention=attention, norm_diff=norm_diff, tanh=tanh,
                 coords_range=coords_range,
@@ -116,6 +121,7 @@ class BAPNet(nn.Module):
 
         ])        
 
+        # GNN block을 graph_layers 만큼 쌓아줌
         for layer_i in range(graph_layers - 1):
             self.ComplexesGraph.append(
                 EquivariantBlock(hidden_nf, edge_feat_nf=edge_feat_nf,
@@ -148,21 +154,21 @@ class BAPNet(nn.Module):
                 aggregation_method=self.aggregation_method))
 
         self.FusionGraph = nn.ModuleList([])
-        self.FusionGraph.append(GATConv(graph_dim * 2, graph_dim * 1, GAT_head, concat=False))
+        self.FusionGraph.append(GATConv(graph_dim * 2, graph_dim * 1, GAT_head, concat=False)) # GATConv: graph attention network의 핵심. attention 기반으로 리간드와 단백질, 리간드와 복합체의 상호작용을 통합
 
-        self.OutputLayer = nn.Sequential(nn.Linear(graph_dim * 1, graph_dim), nn.Hardswish(), nn.Linear(graph_dim, graph_dim))
+        self.OutputLayer = nn.Sequential(nn.Linear(graph_dim * 1, graph_dim), nn.Hardswish(), nn.Linear(graph_dim, graph_dim)) # Hardswish: ReLU보다 부드럽고 연산량이 적은 함수
         self.FinalOutput = nn.Linear(graph_dim * 1, 1)
 
         assert ckpt_path is not None, "ckpt_path is None"
         assert os.path.exists(ckpt_path), "ckpt_path is not exist"
         if ckpt_path is not None:
             self.init_from_ckpt(ckpt_path, ignore_keys=ignore_keys)
-            self.freeze_the_model()
+            self.freeze_the_model() # 사전 학습된 모델을 불러와 사용하는 것
 
     def freeze_the_model(self):
-        self.eval()
+        self.eval() # 모델이 평가 모드에 들어감
         for param in self.parameters():
-            param.requires_grad = False
+            param.requires_grad = False # gradient 계산을 막아 weight 업데이트를 막음 -> 더 이상 학습하지 않고 고정된 상태가 됨
 
     def init_from_ckpt(self, path, ignore_keys=list()):
         sd = torch.load(path, map_location="cpu")["state_dict"]
@@ -174,11 +180,11 @@ class BAPNet(nn.Module):
                     del sd[k]
         missing, unexpected = self.load_state_dict(sd, strict=False)
         print(f"Restored from {path} with {len(missing)} missing and {len(unexpected)} unexpected keys")
-        if len(missing) > 0:
+        if len(missing) > 0: # 사용자가 알 수 있도록 어떤 것이 누락되었는지, 어떤 파라미터를 무시했는지 출력해줌
             print(f"Missing Keys: {missing}")
             print(f"Unexpected Keys: {unexpected}")
 
-    @torch.no_grad()
+    @torch.no_grad() # 이 함수 안에서는 gradient를 계산하지 않는다는 뜻
     def extract_features(self, lig_coords, pocket_coords, lig_a_hidx, pocket_a_hidx, pocket_r_hidx, lig_mask, pocket_mask):
         
         lig_coords, pocket_coords = remove_pocket_mean_batch_ligand(lig_coords, pocket_coords, lig_mask, pocket_mask)
@@ -186,10 +192,12 @@ class BAPNet(nn.Module):
         device = lig_coords.device
         num_lig = lig_coords.shape[0]
 
+        # mask, coords, id를 모두 합친 복합체를 만듦
         complexes_mask = torch.cat([lig_mask, pocket_mask], dim=0)
         complexes_coords = torch.cat([lig_coords, pocket_coords], dim=0).to(torch.float32)
         complexes_id = torch.LongTensor([0] * lig_coords.shape[0] + [1] * pocket_coords.shape[0]).to(device)
 
+        # 임베딩 수행
         lig_atom_type = lig_a_hidx
         pocket_atom_type = pocket_a_hidx
         pocket_residue_type = pocket_r_hidx
@@ -205,7 +213,8 @@ class BAPNet(nn.Module):
 
         complexes_emb = torch.cat([complexes_type_emb, complexes_id_emb], dim=-1)
         complexes_emb = self.embed_fusion(complexes_emb)
-
+        
+        # edge 생성
         complexes_edge_index = get_edges(mask=complexes_mask).cpu()
         complexes_edge_index = torch.LongTensor(complexes_edge_index).to(device)
 
@@ -218,6 +227,7 @@ class BAPNet(nn.Module):
         complexes_emb_ = complexes_emb.clone()
         lig_emb, pocket_emb = complexes_emb_[: num_lig], complexes_emb_[num_lig:]
 
+        # edge마다 거리를 계산함
         complexes_distances, _ = coord2diff(complexes_coords, complexes_edge_index)
         if self.sin_embedding is not None:
             complexes_distances = self.sin_embedding(complexes_distances)
@@ -230,6 +240,7 @@ class BAPNet(nn.Module):
         if self.sin_embedding is not None:
             lig_distances = self.sin_embedding(lig_distances)
 
+        # 우선 리간드, 단백질, 복합체에 대해서 개별 GNN(위에서 정의함)을 적용
         O_C, O_L, O_P = complexes_emb, lig_emb, pocket_emb
         for i in range(self.graph_layers):
             CompLayer = self.ComplexesGraph[i]
@@ -245,8 +256,8 @@ class BAPNet(nn.Module):
 
         FusionLayer = self.FusionGraph[0]
 
-        O_LP = torch.cat([O_L, O_P], dim=0)
-        O_C = FusionLayer(torch.cat([O_C, O_LP], dim=1), complexes_edge_index)
+        O_LP = torch.cat([O_L, O_P], dim=0) # 리간드와 단백질의 임베딩을 합침
+        O_C = FusionLayer(torch.cat([O_C, O_LP], dim=1), complexes_edge_index) # 이를 통해 리간드와 포켓의 특징 및 정보를 통합하여 처리할 수 있음
         
         return O_C[:num_lig].detach(), O_C[num_lig:].detach()
 

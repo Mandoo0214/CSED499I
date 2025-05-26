@@ -296,7 +296,7 @@ class ScorePosNet3D(nn.Module):
         self.cond_dim = config.cond_dim
         self.emb_mlp = nn.Linear(emb_dim + self.cond_dim, emb_dim)
 
-        self.shift_t_mlp_pos = nn.Sequential(nn.Linear(self.cond_dim + 1, 3))
+        self.shift_t_mlp_pos = nn.Sequential(nn.Linear(self.cond_dim + 1, 3)) # 단일 레이어(선형 변환 Linear 레이어)로 이루어진 MLP
 
     def forward(self, protein_pos, protein_v, batch_protein, init_ligand_pos, init_ligand_v, batch_ligand, time_step=None, return_all=False, fix_x=False, hbap_protein_prev=None, hbap_ligand_prev=None, hbap_protein=None, hbap_ligand=None):
 
@@ -464,6 +464,7 @@ class ScorePosNet3D(nn.Module):
         loss_v = scatter_mean(mask * decoder_nll_v + (1. - mask) * kl_v, batch, dim=0)
         return loss_v
 
+    # prior shifting에 중요한 역할을 하는 함수
     def get_diffusion_loss(
             self, net_cond, protein_pos, protein_v, batch_protein, ligand_pos, ligand_v, batch_ligand, time_step=None
     ):
@@ -504,6 +505,7 @@ class ScorePosNet3D(nn.Module):
         pos_noise = torch.zeros_like(ligand_pos)
         pos_noise.normal_()
 
+        # 실제 shift를 계산하는 부분
         shift_cond_t = torch.cat([hbap_ligand, time_step[batch_ligand].unsqueeze(-1)], -1)
         shift_cond_t = self.shift_t_mlp_pos(shift_cond_t)
         ligand_pos_perturbed = a_pos.sqrt() * ligand_pos + (1.0 - a_pos).sqrt() * pos_noise + k_t_pos * shift_cond_t

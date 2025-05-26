@@ -9,6 +9,7 @@ from utils.warmup import GradualWarmupScheduler
 
 
 # customize exp lr scheduler with min lr
+# 이것을 사용하면 min_lr 이상의 학습률을 무조건적으로 보장해줌
 class ExponentialLR_with_minLr(torch.optim.lr_scheduler.ExponentialLR):
     def __init__(self, optimizer, gamma, min_lr=1e-4, last_epoch=-1, verbose=False):
         self.gamma = gamma
@@ -52,6 +53,7 @@ def inf_iterator(iterable):
             iterator = iterable.__iter__()
 
 
+# 현재는 ADAM만 사용할 수 있음
 def get_optimizer(cfg, model):
     if cfg.type == 'adam':
         return torch.optim.Adam(

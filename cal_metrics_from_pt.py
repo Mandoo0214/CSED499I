@@ -4,6 +4,8 @@ import torch
 from glob import glob
 
 
+# 논문에 나와 있던 QED, SA, Vina Score 등을 사용하여 전반적인 모델의 성능을 파악할 수 있는 척도를 제공하는 코드
+# eval_split과 다른 점은, 이 코드의 경우 전반적인 모든 샘플의 평균을 구한다는 것
 if __name__ == '__main__':
     eval_path = '/home/huangzl/workspace2/IPDiff-gspbapv5comp-n05/eval_results/'
     results_fn_list = glob(os.path.join(eval_path, 'metrics_*.pt'))

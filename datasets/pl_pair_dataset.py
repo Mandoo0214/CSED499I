@@ -1,22 +1,23 @@
-import os
-import pickle
-import lmdb
+import os # 파일 경로 처리를 위한 라이브러리
+import pickle # 파이썬 객체를 파일로 저장할 수 있도록 해줌
+import lmdb # 데이터 액세스 속도가 높고 접근이 간단함
 from torch.utils.data import Dataset
-from tqdm.auto import tqdm
+from tqdm.auto import tqdm # 프로그램의 진행률을 진행 바 형태로 보여줌
 
-from utils.data import PDBProtein, parse_sdf_file
-from .pl_data import ProteinLigandData, torchify_dict
+from utils.data import PDBProtein, parse_sdf_file # utils/data.py에서 객체 또는 함수 가져옴
+from .pl_data import ProteinLigandData, torchify_dict # 같은 디렉토리 내 pl_data.py에서 객체 또는 함수 가져옴
 
 
+# import한 Dataset을 상속받아 class 정의
 class PocketLigandPairDataset(Dataset):
 
     def __init__(self, raw_path, transform=None, version='final'):
         super().__init__()
-        self.raw_path = raw_path.rstrip('/')
+        self.raw_path = raw_path.rstrip('/') # 경로에서 맨 끝에 붙어있는 '/' 제거
         self.index_path = os.path.join(self.raw_path, 'index.pkl')
         self.processed_path = os.path.join(os.path.dirname(self.raw_path),
                                            os.path.basename(self.raw_path) + f'_pocket10_processed_{version}.lmdb')
-        self.transform = transform
+        self.transform = transform # transform: 데이터를 가공하여 변환해주는 함수
         self.db = None
 
         self.keys = None
@@ -40,8 +41,8 @@ class PocketLigandPairDataset(Dataset):
             readahead=False,
             meminit=False,
         )
-        with self.db.begin() as txn:
-            self.keys = list(txn.cursor().iternext(values=False))
+        with self.db.begin() as txn: # db에 txn이라는 객체를 이용해 접근 (with 문을 사용해서 구문이 끝나면 자동으로 정리되도록 함)
+            self.keys = list(txn.cursor().iternext(values=False)) # key를 읽어들여 list 형태로 저장함(iternext: key-value pair를 하나씩 제공, values=false: key 값만 갖고 오라는 뜻)
 
     def _close_db(self):
         self.db.close()

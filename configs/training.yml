@@ -1,3 +1,5 @@
+# 훈련에 필요한 파라미터, 옵션 등을 지정하는 파일
+
 data:
   name: pl
   path: /home/huangzl/datasets/targetdiff/crossdocked_v1.1_rmsd1.0

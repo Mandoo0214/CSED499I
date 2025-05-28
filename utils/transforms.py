@@ -125,7 +125,7 @@ class FeaturizeProteinAtom(object):
 
     def __call__(self, data: ProteinLigandData):
         element = data.protein_element.view(-1, 1) == self.atomic_numbers.view(1, -1)  # (N_atoms, N_elements)
-        amino_acid = F.one_hot(data.protein_atom_to_aa_type, num_classes=self.max_num_aa)
+        amino_acid = F.one_hot(data.protein_atom_to_aa_type.long(), num_classes=self.max_num_aa) # RuntimeError를 고치기 위해 long 타입으로 명시적 변환
         is_backbone = data.protein_is_backbone.view(-1, 1).long()
         x = torch.cat([element, amino_acid, is_backbone], dim=-1)
         data.protein_atom_feature = x

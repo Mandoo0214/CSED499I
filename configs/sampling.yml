@@ -1,7 +1,7 @@
 # 실제 분자 생성 단계(샘플링 단계)에서 필요한 설정들을 담당하는 파일
 
 model:
-  checkpoint: ./pretrained_models/pretrained_ipdiff.pt
+  checkpoint: ../pretrained_models/pretrained_ipdiff.pt
 
 sample:
   seed: 2024

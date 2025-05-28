@@ -1,7 +1,10 @@
 import argparse
 import os
+import sys
 import shutil
 from glob import glob
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))) # 밑에 있는 utils를 import하지 못해 작성
 
 import torch
 from torch_geometric.transforms import Compose
@@ -12,6 +15,7 @@ from datasets.pl_data import ProteinLigandData, torchify_dict
 from models.molopt_score_model import ScorePosNet3D
 from scripts.sample_diffusion import sample_diffusion_ligand
 from utils.data import PDBProtein
+from graphbap.bapnet import BAPNet
 
 
 def pdb_to_pocket_data(pdb_path):
@@ -47,7 +51,7 @@ if __name__ == '__main__':
     misc.seed_all(config.sample.seed)
 
     # Load checkpoint
-    ckpt = torch.load(config.model.checkpoint, map_location=args.device)
+    ckpt = torch.load(config.model.checkpoint, map_location=args.device, weights_only=False) # 공식 pretrained_model을 받은 것이므로 torch.load()의 보안 설정 해제
     logger.info(f"Training Config: {ckpt['config']}")
 
     # Transforms
@@ -71,13 +75,16 @@ if __name__ == '__main__':
     data = pdb_to_pocket_data(args.pdb_path)
     data = transform(data)
 
+    net_cond = BAPNet(ckpt_path='../pretrained_models/ipnet')
+
     pred_pos, pred_v, pred_pos_traj, pred_v_traj, pred_v0_traj, pred_vt_traj, time_list = sample_diffusion_ligand(
         model, data, config.sample.num_samples,
         batch_size=args.batch_size, device=args.device,
         num_steps=config.sample.num_steps,
         pos_only=config.sample.pos_only,
         center_pos_mode=config.sample.center_pos_mode,
-        sample_num_atoms=config.sample.sample_num_atoms
+        sample_num_atoms=config.sample.sample_num_atoms,
+        net_cond = net_cond
     )
     result = {
         'data': data,

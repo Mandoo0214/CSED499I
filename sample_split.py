@@ -41,6 +41,8 @@ def sample_diffusion_ligand(model, data, num_samples, batch_size=16, device='cud
     current_i = 0
     for i in tqdm(range(num_batch)):
         n_data = batch_size if i < num_batch - 1 else num_samples - batch_size * (num_batch - 1)
+
+        print(f"현재 배치 인덱스: {i}, n_data: {n_data}")
         batch = Batch.from_data_list([data.clone() for _ in range(n_data)], follow_batch=FOLLOW_BATCH).to(device)
 
         t1 = time.time()

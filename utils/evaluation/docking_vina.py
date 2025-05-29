@@ -6,7 +6,6 @@ import subprocess
 import rdkit.Chem as Chem
 from rdkit.Chem import AllChem
 import tempfile
-import AutoDockTools
 import os
 import contextlib
 
@@ -72,7 +71,7 @@ class PrepProt(object):
                          stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL).communicate()
 
     def get_pdbqt(self, prot_pdbqt):
-        prepare_receptor = os.path.join(AutoDockTools.__path__[0], 'Utilities24/prepare_receptor4.py')
+        prepare_receptor = 'prepare_receptor4.py'
         subprocess.Popen(['python3', prepare_receptor, '-r', self.prot_pqr, '-o', prot_pdbqt],
                          stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL).communicate()
 

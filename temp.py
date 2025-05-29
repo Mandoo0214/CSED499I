@@ -3,10 +3,10 @@
 import torch
 
 # 경로는 네 파일 위치에 맞게 바꿔줘
-pt_path = 'output_pdb/sampled_100_split'
+pt_path = 'output_pdb/sampled_100_split/result_0001.pt'
 
 # 파일 불러오기
-data = torch.load(pt_path)
+data = torch.load(pt_path, weights_only = False)
 
 # 최상위 키 확인
 print("Top-level keys:", data.keys() if isinstance(data, dict) else type(data))

@@ -35,7 +35,7 @@ def print_ring_ratio(all_ring_sizes, logger):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     root_dir = '/home/huangzl/workspace2/IPDiff-gspbapv5comp-n05'
-    parser.add_argument('--sample_path', default=root_dir + '/output_pdb/sampled_100_split', type=str)
+    parser.add_argument('--sample_path', default=root_dir + '/output_pdb', type=str)
     parser.add_argument('--verbose', type=eval, default=False)
     parser.add_argument('--eval_step', type=int, default=-1)
     parser.add_argument('--eval_start_index', type=int, default=None)
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     # Load generated data
     # 각 샘플이 pt라는 이름의 파일로 저장되어 있음 -> 그것을 불러와서 해당 샘플에 대한 여러 가지 척도들을 계산하여 평가함
     # 최종적으로 샘플별 평가 척도를 pt 파일로 만들어 내놓음
-    results_fn_list = glob(os.path.join(args.sample_path, '*result_*.pt'))
+    results_fn_list = glob(os.path.join(args.sample_path, 'sample_100.pt'))
     results_fn_list = sorted(results_fn_list, key=lambda x: int(os.path.basename(x)[:-3].split('_')[-1]))
     eval_start_index = args.eval_start_index
     eval_end_index = args.eval_end_index

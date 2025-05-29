@@ -1,9 +1,9 @@
-import os
+# 이것저것 확인을 위해 필요한 짧은 파이썬 코드들 썼다가 지우는 임시 파일
+
 import torch
 
-print(os.path.abspath('pretrained_models/ipnet'))
-print(os.path.exists('pretrained_models/ipnet'))
+data = torch.load('output_pdb/sample_100.pt', weights_only=False)
 
-ckpt = torch.load('pretrained_models/ipnet', map_location='cpu')
-print(ckpt.keys())
-print(list(ckpt['state_dict'].keys())[:10])
+print(type(data))
+for k in data.keys():
+    print(k, type(data[k]))

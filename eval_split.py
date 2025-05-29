@@ -35,13 +35,13 @@ def print_ring_ratio(all_ring_sizes, logger):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     root_dir = '/home/huangzl/workspace2/IPDiff-gspbapv5comp-n05'
-    parser.add_argument('--sample_path', default=root_dir + '/sampled_results/', type=str)
+    parser.add_argument('--sample_path', default=root_dir + '/output_pdb/sample_100_split', type=str)
     parser.add_argument('--verbose', type=eval, default=False)
     parser.add_argument('--eval_step', type=int, default=-1)
     parser.add_argument('--eval_start_index', type=int, default=None)
     parser.add_argument('--eval_end_index', type=int, default=None)
     parser.add_argument('--save', type=eval, default=True)
-    parser.add_argument('--protein_root', type=str, default='/home/huangzl/datasets/targetdiff/crossdocked_v1.1_rmsd1.0')
+    parser.add_argument('--protein_root', type=str, default='datasets/1m17_clean.pdb')
     parser.add_argument('--atom_enc_mode', type=str, default='add_aromatic')
     parser.add_argument('--docking_mode', type=str, default='vina_score', choices=['qvina', 'vina_score', 'vina_dock', 'none'])
     parser.add_argument('--exhaustiveness', type=int, default=16)

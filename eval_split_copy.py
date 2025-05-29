@@ -30,7 +30,7 @@ def print_ring_ratio(all_ring_sizes, logger):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    root_dir = 'CSED499I'
+    root_dir = '.'
     parser.add_argument('--sample_path', default=root_dir + '/output_pdb', type=str)
     parser.add_argument('--verbose', type=eval, default=False)
     parser.add_argument('--eval_step', type=int, default=-1)

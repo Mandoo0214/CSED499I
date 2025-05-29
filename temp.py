@@ -2,28 +2,28 @@
 
 import torch
 
-# 경로는 네 파일 위치에 맞게 바꿔줘
-pt_path = 'output_pdb/sampled_100_split/result_0001.pt'
+# 원본 파일 경로
+input_path = 'output_pdb/sample_100.pt'
+output_path = 'output_pdb/sample_100_eval.pt'
 
-# 파일 불러오기
-data = torch.load(pt_path, weights_only = False)
+# 파일 로드
+raw_data = torch.load(input_path, weights_only = False)
 
-# 최상위 키 확인
-print("Top-level keys:", data.keys() if isinstance(data, dict) else type(data))
+# 리스트로 되어 있는 위치/벡터 trajectory에서 하나씩 꺼내서 샘플화
+pred_pos_traj_list = raw_data['pred_ligand_pos_traj']
+pred_v_traj_list = raw_data['pred_ligand_v_traj']
+shared_data = raw_data['data']
 
-# 내부 구조 확인
-if isinstance(data, list):
-    print(f"Total samples: {len(data)}")
-    print("First item type:", type(data[0]))
-    if hasattr(data[0], '__dict__'):
-        print("First sample attributes:", data[0].__dict__.keys())
-elif isinstance(data, dict):
-    for k, v in data.items():
-        print(f"{k}: {type(v)}")
-        if isinstance(v, list):
-            print(f" -> list with {len(v)} items, first item type: {type(v[0]) if v else 'empty'}")
-        elif isinstance(v, dict):
-            print(f" -> dict with keys: {v.keys()}")
-else:
-    print("Data format not recognized.")
+# 각 샘플을 딕셔너리 형태로 묶어서 리스트에 저장
+converted_data = []
+for i in range(len(pred_pos_traj_list)):
+    sample = {
+        'data': shared_data,
+        'pred_ligand_pos_traj': pred_pos_traj_list[i],
+        'pred_ligand_v_traj': pred_v_traj_list[i],
+    }
+    converted_data.append(sample)
 
+# 새 파일로 저장
+torch.save(converted_data, output_path)
+print(f"변환 완료! {len(converted_data)}개의 샘플이 {output_path}에 저장됨.")

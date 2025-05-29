@@ -35,7 +35,7 @@ def print_ring_ratio(all_ring_sizes, logger):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     root_dir = '/home/huangzl/workspace2/IPDiff-gspbapv5comp-n05'
-    parser.add_argument('--sample_path', default=root_dir + '/output_pdb/sample_100_split', type=str)
+    parser.add_argument('--sample_path', default=root_dir + '/output_pdb/sampled_100_split', type=str)
     parser.add_argument('--verbose', type=eval, default=False)
     parser.add_argument('--eval_step', type=int, default=-1)
     parser.add_argument('--eval_start_index', type=int, default=None)

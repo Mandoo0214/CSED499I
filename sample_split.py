@@ -124,7 +124,7 @@ def sample_diffusion_ligand(model, data, num_samples, batch_size=16, device='cud
 
 if __name__ == '__main__':
 
-    root_dir = '/home/huangzl/workspace2/IPDiff-gspbapv5comp-n05'
+    root_dir = '.'
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default=root_dir + '/configs/sampling.yml')

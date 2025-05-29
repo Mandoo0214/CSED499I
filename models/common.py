@@ -115,13 +115,14 @@ def get_r_feat(r, r_exp_func, node_type=None, edge_index=None, mode='basic'):
 
 def compose_context(h_protein, h_ligand, pos_protein, pos_ligand, batch_protein, batch_ligand, hbap_protein=None, hbap_ligand=None):
 
-    batch_ctx = torch.cat([batch_protein, batch_ligand], dim=0)
+    device = batch_protein.device # 텐서 디바이스 맞춰줌
+    batch_ctx = torch.cat([batch_protein.to(device), batch_ligand.to(device)], dim=0)
     sort_idx = torch.sort(batch_ctx, stable=True).indices
 
     mask_ligand = torch.cat([
-        torch.zeros([batch_protein.size(0)], device=batch_protein.device).bool(),
-        torch.ones([batch_ligand.size(0)], device=batch_ligand.device).bool(),
-    ], dim=0)[sort_idx]
+    torch.zeros(len(batch_protein), dtype=torch.bool, device=device),
+    torch.ones(len(batch_ligand), dtype=torch.bool, device=device),
+    ])
 
     batch_ctx = batch_ctx[sort_idx]
     h_ctx = torch.cat([h_protein, h_ligand], dim=0)[sort_idx]  # (N_protein+N_ligand, H)

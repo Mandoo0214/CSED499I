@@ -2,8 +2,8 @@
 
 data:
   name: pl
-  path: /home/huangzl/datasets/targetdiff/crossdocked_v1.1_rmsd1.0
-  split: /home/huangzl/datasets/targetdiff/crossdocked_pocket10_pose_split.pt
+  path: ../drive/MyDrive/data/crossdocked_v1.1_rmsd1.0
+  split: ../drive/MyDrive/data/crossdocked_pocket10_pose_split.pt
   transform:
     ligand_atom_mode: add_aromatic
     random_rot: False

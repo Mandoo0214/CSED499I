@@ -145,7 +145,7 @@ if __name__ == '__main__':
     misc.seed_all(config.sample.seed)
 
     # Load checkpoint
-    ckpt = torch.load(config.model.checkpoint, map_location=args.device)
+    ckpt = torch.load(config.model.checkpoint, map_location=args.device, weights_only = False)
     logger.info(f"Training Config: {train_config}")
 
     # Transforms

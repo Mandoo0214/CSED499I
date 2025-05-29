@@ -1,29 +1,25 @@
 # 이것저것 확인을 위해 필요한 짧은 파이썬 코드들 썼다가 지우는 임시 파일
 
 import torch
+import numpy as np
 
-# 원본 파일 경로
-input_path = 'output_pdb/sample_100.pt'
-output_path = 'output_pdb/sample_100_eval.pt'
+# 기존 pt 파일 경로
+old_path = 'output_pdb/sample_100.pt'
+new_path = 'output_pdb/sample_100_eval.pt'
 
-# 파일 로드
-raw_data = torch.load(input_path, weights_only = False)
+# 기존 파일 로드
+r = torch.load(old_path, weights_only = False)
 
-# 리스트로 되어 있는 위치/벡터 trajectory에서 하나씩 꺼내서 샘플화
-pred_pos_traj_list = raw_data['pred_ligand_pos_traj']
-pred_v_traj_list = raw_data['pred_ligand_v_traj']
-shared_data = raw_data['data']
+# 리스트 → numpy 배열로 변환
+new_r = {
+    'data': r['data'],
+    'pred_ligand_pos': np.array(r['pred_ligand_pos']),
+    'pred_ligand_v': np.array(r['pred_ligand_v']),
+    'pred_ligand_pos_traj': np.array(r['pred_ligand_pos_traj']),
+    'pred_ligand_v_traj': np.array(r['pred_ligand_v_traj']),
+}
 
-# 각 샘플을 딕셔너리 형태로 묶어서 리스트에 저장
-converted_data = []
-for i in range(len(pred_pos_traj_list)):
-    sample = {
-        'data': shared_data,
-        'pred_ligand_pos_traj': pred_pos_traj_list[i],
-        'pred_ligand_v_traj': pred_v_traj_list[i],
-    }
-    converted_data.append(sample)
+# 새로운 파일로 저장
+torch.save(new_r, new_path)
 
-# 새 파일로 저장
-torch.save(converted_data, output_path)
-print(f"변환 완료! {len(converted_data)}개의 샘플이 {output_path}에 저장됨.")
+print(f'변환 완료! 저장된 파일: {new_path}')

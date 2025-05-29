@@ -201,6 +201,8 @@ class ScorePosNet3D(nn.Module):
         super().__init__()
         self.config = config
 
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         # variance schedule
         self.model_mean_type = config.model_mean_type  # ['noise', 'C0']
         self.loss_v_weight = config.loss_v_weight
@@ -231,16 +233,18 @@ class ScorePosNet3D(nn.Module):
         self.sqrt_recip_alphas_cumprod = to_torch_const(np.sqrt(1. / alphas_cumprod))
         self.sqrt_recipm1_alphas_cumprod = to_torch_const(np.sqrt(1. / alphas_cumprod - 1))
 
+        # 텐서 디바이스 맞춰주기
         posterior_variance = betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
-        self.posterior_mean_c0_coef = to_torch_const(betas * np.sqrt(alphas_cumprod_prev) / (1. - alphas_cumprod))
-        self.posterior_mean_ct_coef = to_torch_const(
-            (1. - alphas_cumprod_prev) * np.sqrt(alphas) / (1. - alphas_cumprod))
+        self.register_buffer("posterior_mean_c0_coef", to_torch_const(betas * np.sqrt(alphas_cumprod_prev) / (1. - alphas_cumprod)).to(device))
+        self.register_buffer("posterior_mean_ct_coef", to_torch_const((1. - alphas_cumprod_prev) * np.sqrt(alphas) / (1. - alphas_cumprod)).to(device))
 
-        self.posterior_var = to_torch_const(posterior_variance)
-        self.posterior_logvar = to_torch_const(np.log(np.append(self.posterior_var[1], self.posterior_var[1:])))
+        self.register_buffer("posterior_var", to_torch_const(posterior_variance).to(device))
+
+        logvar = np.log(np.append(self.posterior_var[1].cpu().numpy(), self.posterior_var[1:].cpu().numpy()))
+        self.register_buffer("posterior_logvar", to_torch_const(logvar).to(device))
 
         k_t = np.sqrt(alphas_cumprod) * (1 - np.sqrt(alphas_cumprod))
-        self.k_t = to_torch_const(k_t)
+        self.register_buffer("k_t", to_torch_const(k_t).to(device))
 
         if config.v_beta_schedule == 'cosine':
             alphas_v = cosine_beta_schedule(self.num_timesteps, config.v_beta_s)
@@ -323,6 +327,9 @@ class ScorePosNet3D(nn.Module):
         if hbap_ligand is None:
             hbap_ligand = torch.zeros([init_ligand_h.shape[0], self.cond_dim]).to(init_ligand_h.device)
 
+        hbap_protein = hbap_protein.to(h_protein.device) # 텐서 디바이스 맞춰줌
+        hbap_ligand = hbap_ligand.to(protein_pos.device) # 텐서 디바이스 맞춰줌
+        
         h_protein = self.emb_mlp(torch.cat([h_protein, hbap_protein], dim=1))
         init_ligand_h = self.emb_mlp(torch.cat([init_ligand_h, hbap_ligand], dim=1))
 
@@ -407,18 +414,34 @@ class ScorePosNet3D(nn.Module):
                       extract(self.sqrt_recipm1_alphas_cumprod, t, batch) * eps
         return pos0_from_e
 
+# 함수 전체에 디바이스를 맞춰주는 구문 추가
     def q_pos_posterior(self, x0, xt, t, t_minus1, batch, shift=None, shift_minus1=None):
+        device = x0.device
+        self.posterior_mean_c0_coef = self.posterior_mean_c0_coef.to(device)
+        self.posterior_mean_ct_coef = self.posterior_mean_ct_coef.to(device)
+        self.k_t = self.k_t.to(device)
+
+        # 디바이스 강제로 맞춰주기
+        t = t.to(x0.device)
+        if t_minus1 is not None:
+            t_minus1 = t_minus1.to(x0.device)
+        batch = batch.to(x0.device)
+        if shift is not None:
+            shift = shift.to(x0.device)
+        if shift_minus1 is not None:
+            shift_minus1 = shift_minus1.to(x0.device)
+
         if shift is None or t_minus1 is None:
-            pos_model_mean = extract(self.posterior_mean_c0_coef, t, batch) * x0 + \
-                             extract(self.posterior_mean_ct_coef, t, batch) * xt
+            pos_model_mean = extract(self.posterior_mean_c0_coef, t, batch).to(x0.device) * x0 + \
+                             extract(self.posterior_mean_ct_coef, t, batch).to(x0.device) * xt
         else:
             if shift is None:
-                pos_model_mean = extract(self.posterior_mean_c0_coef, t, batch) * x0 + \
-                                 extract(self.posterior_mean_ct_coef, t, batch) * xt + extract(self.k_t, t_minus1, batch) * shift_minus1
+                pos_model_mean = extract(self.posterior_mean_c0_coef, t, batch).to(x0.device) * x0 + \
+                                 extract(self.posterior_mean_ct_coef, t, batch).to(x0.device) * xt + extract(self.k_t, t_minus1, batch).to(x0.device) * shift_minus1
             else:
-                pos_model_mean = extract(self.posterior_mean_c0_coef, t, batch) * x0 + \
-                                 extract(self.posterior_mean_ct_coef, t, batch) * (xt - extract(self.k_t, t, batch) * (shift)) + \
-                                 extract(self.k_t, t_minus1, batch) * shift_minus1
+                pos_model_mean = extract(self.posterior_mean_c0_coef, t, batch).to(x0.device) * x0 + \
+                                 extract(self.posterior_mean_ct_coef, t, batch).to(x0.device) * (xt - extract(self.k_t, t, batch).to(x0.device) * (shift)) + \
+                                 extract(self.k_t, t_minus1, batch).to(shift_minus1.device) * shift_minus1
         return pos_model_mean
 
     def kl_pos_prior(self, pos0, batch):
@@ -562,6 +585,13 @@ class ScorePosNet3D(nn.Module):
                          init_ligand_pos, init_ligand_v, batch_ligand,
                          num_steps=None, center_pos_mode=None, pos_only=False, net_cond=None, cond_dim=128):
 
+        # 텐서 디바이스 맞춰주기
+        device = protein_pos.device
+
+        self.posterior_mean_c0_coef = self.posterior_mean_c0_coef.to(device)
+        self.posterior_mean_ct_coef = self.posterior_mean_ct_coef.to(device)
+        self.k_t = self.k_t.to(device)
+
         if num_steps is None:
             num_steps = self.num_timesteps
         num_graphs = batch_protein.max().item() + 1
@@ -626,9 +656,16 @@ class ScorePosNet3D(nn.Module):
             hbap_ligand, hbap_protein = net_cond.extract_features(pred_ligand_pos, gt_protein_pos, pred_lig_a_h, gt_protein_a_h, gt_protein_r_h, batch_ligand, batch_protein)
             hbap_ligand, hbap_protein = hbap_ligand.detach(), hbap_protein.detach()
 
+            # 텐서의 디바이스를 맞춰줌
+            t_minus1 = t_minus1.to(hbap_ligand.device)
+            batch_ligand = batch_ligand.to(hbap_ligand.device)
+
             shift_cond_t = shift_cond_t_minus1
             if t_minus1 is not None:
-                shift_cond_t_minus1 = self.shift_t_mlp_pos(torch.cat([hbap_ligand, t_minus1[batch_ligand].unsqueeze(-1)], -1))
+              # 텐서 디바이스 맞추기 위해 변수를 순차적으로 선언
+              self.shift_t_mlp_pos = self.shift_t_mlp_pos.to(hbap_ligand.device)
+              input_tensor = torch.cat([hbap_ligand, t_minus1[batch_ligand].unsqueeze(-1).to(hbap_ligand.device)], -1)
+              shift_cond_t_minus1 = self.shift_t_mlp_pos(input_tensor)
 
             if not pos_only:
                 log_ligand_v_recon = F.log_softmax(v0_from_e, dim=-1)

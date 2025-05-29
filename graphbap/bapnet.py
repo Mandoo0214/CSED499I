@@ -193,6 +193,7 @@ class BAPNet(nn.Module):
         num_lig = lig_coords.shape[0]
 
         # mask, coords, id를 모두 합친 복합체를 만듦
+        pocket_mask = pocket_mask.to(lig_mask.device) # 텐서 디바이스 맞춰주기
         complexes_mask = torch.cat([lig_mask, pocket_mask], dim=0)
         complexes_coords = torch.cat([lig_coords, pocket_coords], dim=0).to(torch.float32)
         complexes_id = torch.LongTensor([0] * lig_coords.shape[0] + [1] * pocket_coords.shape[0]).to(device)
@@ -202,10 +203,19 @@ class BAPNet(nn.Module):
         pocket_atom_type = pocket_a_hidx
         pocket_residue_type = pocket_r_hidx
 
+        # 텐서들을 모두 GPU로 맞춰줌
+        complexes_id = complexes_id.to(self.id_embed.weight.device)
         complexes_id_emb = self.id_embed(complexes_id)
+
+        lig_atom_type = lig_atom_type.to(self.ligand_atom_type_embed.weight.device)
         lig_atom_type_emb = self.ligand_atom_type_embed(lig_atom_type)
+
+        pocket_atom_type = pocket_atom_type.to(self.pocket_atom_type_embed.weight.device)
         pocket_atom_type_emb = self.pocket_atom_type_embed(pocket_atom_type)
+
+        pocket_residue_type = pocket_residue_type.to(self.pocket_residue_type_embed.weight.device)
         pocket_residue_type_emb = self.pocket_residue_type_embed(pocket_residue_type)
+    
         pocket_type_emb = torch.cat([pocket_atom_type_emb, pocket_residue_type_emb], dim=1)
         pocket_type_emb = self.pocket_type_fusion(pocket_type_emb)
 
@@ -257,6 +267,7 @@ class BAPNet(nn.Module):
         FusionLayer = self.FusionGraph[0]
 
         O_LP = torch.cat([O_L, O_P], dim=0) # 리간드와 단백질의 임베딩을 합침
+        complexes_edge_index = complexes_edge_index.to(O_C.device) # 텐서의 디바이스를 통일해줌
         O_C = FusionLayer(torch.cat([O_C, O_LP], dim=1), complexes_edge_index) # 이를 통해 리간드와 포켓의 특징 및 정보를 통합하여 처리할 수 있음
         
         return O_C[:num_lig].detach(), O_C[num_lig:].detach()
@@ -288,6 +299,10 @@ class GCL(nn.Module):
                 nn.Sigmoid())
 
     def edge_model(self, source, target, edge_attr, edge_mask):
+        device = source.device
+        target = target.to(device)
+        edge_attr = edge_attr.to(device)
+        
         if edge_attr is None:
             out = torch.cat([source, target], dim=1)
         else:
@@ -317,6 +332,7 @@ class GCL(nn.Module):
         return out, agg
 
     def forward(self, h, edge_index, edge_attr=None, node_attr=None, node_mask=None, edge_mask=None):
+        edge_index = edge_index.to(h.device) # 텐서 GPU로 통일
         row, col = edge_index
         edge_feat, mij = self.edge_model(h[row], h[col], edge_attr, edge_mask)
         h, agg = self.node_model(h, edge_index, edge_feat, node_attr)
@@ -344,6 +360,17 @@ class EquivariantUpdate(nn.Module):
         self.aggregation_method = aggregation_method
 
     def coord_model(self, h, coord, edge_index, coord_diff, edge_attr, edge_mask, update_coords_mask=None):
+        device = h.device
+
+        # 텐서의 디바이스를 통일
+        edge_index = edge_index.to(device)
+        edge_attr = edge_attr.to(device)
+        coord_diff = coord_diff.to(device)
+        if edge_mask is not None:
+            edge_mask = edge_mask.to(device)
+        if update_coords_mask is not None:
+            update_coords_mask = update_coords_mask.to(device)
+
         row, col = edge_index
         input_tensor = torch.cat([h[row], h[col], edge_attr], dim=1)
         if self.tanh:
@@ -359,6 +386,7 @@ class EquivariantUpdate(nn.Module):
         if update_coords_mask is not None:
             agg = update_coords_mask * agg
 
+        coord = coord.to(agg.device)
         coord = coord + agg
         return coord
 

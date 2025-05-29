@@ -75,7 +75,7 @@ if __name__ == '__main__':
     data = pdb_to_pocket_data(args.pdb_path)
     data = transform(data)
 
-    net_cond = BAPNet(ckpt_path='../pretrained_models/ipnet')
+    net_cond = BAPNet(ckpt_path='pretrained_models/ipnet')
 
     pred_pos, pred_v, pred_pos_traj, pred_v_traj, pred_v0_traj, pred_vt_traj, time_list = sample_diffusion_ligand(
         model, data, config.sample.num_samples,

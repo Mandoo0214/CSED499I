@@ -56,7 +56,7 @@ if __name__ == '__main__':
     # Load generated data
     # 각 샘플이 pt라는 이름의 파일로 저장되어 있음 -> 그것을 불러와서 해당 샘플에 대한 여러 가지 척도들을 계산하여 평가함
     # 최종적으로 샘플별 평가 척도를 pt 파일로 만들어 내놓음
-    results_fn_list = glob(os.path.join(args.sample_path, 'sample_100.pt'))
+    results_fn_list = glob(os.path.join(args.sample_path, 'sample_100_eval.pt'))
     results_fn_list = sorted(results_fn_list, key=lambda x: int(os.path.basename(x)[:-3].split('_')[-1]))
     eval_start_index = args.eval_start_index
     eval_end_index = args.eval_end_index

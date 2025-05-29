@@ -30,7 +30,7 @@ def print_ring_ratio(all_ring_sizes, logger):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    root_dir = '/home/huangzl/workspace2/IPDiff-gspbapv5comp-n05'
+    root_dir = 'CSED499I'
     parser.add_argument('--sample_path', default=root_dir + '/output_pdb', type=str)
     parser.add_argument('--verbose', type=eval, default=False)
     parser.add_argument('--eval_step', type=int, default=-1)
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     if not args.verbose:
         RDLogger.DisableLog('rdApp.*')
 
-    results_fn_list = glob(os.path.join(args.sample_path, 'sample_*.pt'))
+    results_fn_list = glob(os.path.join(args.sample_path, 'sample_100.pt'))
     results_fn_list = sorted(results_fn_list, key=lambda x: int(os.path.basename(x)[:-3].split('_')[-1]))
     eval_start_index = args.eval_start_index if args.eval_start_index is not None else 0
     eval_end_index = args.eval_end_index if args.eval_end_index is not None else len(results_fn_list) - 1
